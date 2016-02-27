@@ -124,9 +124,9 @@ var sortableDecorator = (function ( global, factory ) {
 	errorMessage = 'The sortable decorator only works with elements that correspond to array members';
 
 	dragstartHandler = function ( event ) {
-		var storage = this._ractive, lastDotIndex;
+		var nodeInfo = Ractive.getNodeInfo( this ), lastDotIndex;
 
-		sourceKeypath = storage.keypath;
+		sourceKeypath = nodeInfo.keypath;
 
 		// this decorator only works with array members!
 		lastDotIndex = sourceKeypath.lastIndexOf( '.' );
@@ -145,18 +145,19 @@ var sortableDecorator = (function ( global, factory ) {
 		event.dataTransfer.setData( 'foo', true ); // enables dragging in FF. go figure
 
 		// keep a reference to the Ractive instance that 'owns' this data and this element
-		ractive = storage.root;
+		ractive = nodeInfo.ractive.root;
 	};
 
 	dragenterHandler = function () {
 		var targetKeypath, lastDotIndex, targetArray, targetIndex, array, source;
 
+		var nodeInfo = Ractive.getNodeInfo( this );
+
 		// If we strayed into someone else's territory, abort
-		if ( this._ractive.root !== ractive ) {
+		if ( nodeInfo.ractive.root !== ractive ) {
 			return;
 		}
-
-		targetKeypath = this._ractive.keypath;
+		targetKeypath = nodeInfo.keypath;
 
 		// this decorator only works with array members!
 		lastDotIndex = targetKeypath.lastIndexOf( '.' );
@@ -182,13 +183,15 @@ var sortableDecorator = (function ( global, factory ) {
 		array = ractive.get( sourceArray );
 
 		// remove source from array
-		source = array.splice( sourceIndex, 1 )[0];
+		ractive.splice( sourceArray, sourceIndex, 1 ).then(function(elements) {
+			source =  elements[0];
+			
+			// the target index is now the source index...
+			sourceIndex = targetIndex;
 
-		// the target index is now the source index...
-		sourceIndex = targetIndex;
-
-		// add source back to array in new location
-		array.splice( sourceIndex, 0, source );
+			// add source back to array in new location
+			ractive.splice( sourceArray, sourceIndex, 0, source );
+		});
 	};
 
 	removeTargetClass = function () {
@@ -198,11 +201,12 @@ var sortableDecorator = (function ( global, factory ) {
 	preventDefault = function ( event ) { event.preventDefault(); };
 
 	Ractive.decorators.sortable = sortable;
-	
-	return sortable
+
+	return sortable;
+
 }));
 
 // Common JS (i.e. browserify) environment
 if ( typeof module !== 'undefined' && module.exports) {
-	module.exports = sortableDecorator
+	module.exports = sortableDecorator;
 }
